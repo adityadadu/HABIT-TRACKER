@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Habit Tracker</title>
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background-color: lightyellow;
+  color: black;
+  text-align: center;
+  margin: 0;
+  padding: 20px;
+}
+h1 {
+  color: darkblue;
+  font-size: 36px;
+  text-decoration: underline;
+}
+#box {
+  width: 90%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.habit {
+  background-color: white;
+  border: 2px solid black;
+  margin: 10px 0;
+  padding: 10px;
+  text-align: left;
+}
+.habit h3 {
+  margin: 0 0 5px 0;
+  color: darkgreen;
+}
+.habit label {
+  display: block;
+  margin: 4px 0;
+  font-size: 18px;
+}
+.habit input[type=checkbox] {
+  width: 18px;
+  height: 18px;
+}
+.finished {
+  background-color: lightgreen;
+}
+button {
+  background-color: dodgerblue;
+  color: white;
+  border: 2px solid navy;
+  padding: 6px 12px;
+  font-size: 15px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: royalblue;
+}
+.del {
+  background-color: red;
+  border-color: darkred;
+  float: right;
+  font-size: 12px;
+}
+input[type=text] {
+  padding: 5px;
+  font-size: 15px;
+  margin: 3px;
+  width: 80%;
+}
+#addbox {
+  border: 2px dashed gray;
+  padding: 10px;
+  margin-top: 20px;
+}
+#progress {
+  font-size: 20px;
+  font-weight: bold;
+  color: purple;
+}
+</style>
+</head>
+<body>
+
+<h1>My Habit Tracker!</h1>
+<p>Check the boxes when you do your habits :)</p>
+
+<div id="box">
+  <button onclick="changeDay(-1)">&lt; Yesterday</button>
+  <button onclick="changeDay(1)">Tomorrow &gt;</button>
+  <h2 id="date"></h2>
+  <p id="progress"></p>
+
+  <div id="habits"></div>
+
+  <div id="addbox">
+    <h2>Add new habit</h2>
+    <input type="text" id="name" placeholder="Habit name (like Read)"><br>
+    <input type="text" id="steps" placeholder="Checkpoints, separated by commas (optional)"><br>
+    <button onclick="addHabit()">Add Habit</button>
+  </div>
+</div>
+
+<script>
+var habits = [];
+var checked = {};
+var day = new Date();
+
+// load saved stuff
+try {
+  var saved = JSON.parse(localStorage.getItem("myHabits"));
+  if (saved) {
+    habits = saved.habits;
+    checked = saved.checked;
+  }
+} catch (e) {}
+
+function save() {
+  try {
+    localStorage.setItem("myHabits", JSON.stringify({habits: habits, checked: checked}));
+  } catch (e) {}
+}
+
+function today() {
+  return day.toDateString();
+}
+
+function getSteps(h) {
+  if (h.steps.length == 0) {
+    return [h.name];
+  }
+  return h.steps;
+}
+
+function isChecked(h, i) {
+  var key = today() + "|" + h.name + "|" + i;
+  return checked[key] == true;
+}
+
+function clickBox(hIndex, i) {
+  var key = today() + "|" + habits[hIndex].name + "|" + i;
+  checked[key] = !checked[key];
+  save();
+  show();
+}
+
+function addHabit() {
+  var name = document.getElementById("name").value;
+  var steps = document.getElementById("steps").value;
+  if (name == "") {
+    alert("Please type a name!");
+    return;
+  }
+  var list = [];
+  if (steps != "") {
+    var parts = steps.split(",");
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (p != "") {
+        list.push(p);
+      }
+    }
+  }
+  habits.push({name: name, steps: list});
+  document.getElementById("name").value = "";
+  document.getElementById("steps").value = "";
+  save();
+  show();
+}
+
+function deleteHabit(i) {
+  if (confirm("Delete this habit?")) {
+    habits.splice(i, 1);
+    save();
+    show();
+  }
+}
+
+function changeDay(n) {
+  day.setDate(day.getDate() + n);
+  show();
+}
+
+function clean(text) {
+  var d = document.createElement("div");
+  d.textContent = text;
+  return d.innerHTML;
+}
+
+function show() {
+  document.getElementById("date").innerHTML = today();
+  var html = "";
+  var total = 0;
+  var done = 0;
+
+  if (habits.length == 0) {
+    html = "<p>No habits yet. Add one below!</p>";
+  }
+
+  for (var h = 0; h < habits.length; h++) {
+    var steps = getSteps(habits[h]);
+    var count = 0;
+    var inner = "";
+    for (var i = 0; i < steps.length; i++) {
+      var c = isChecked(habits[h], i);
+      if (c) { count++; }
+      inner += '<label><input type="checkbox" ' + (c ? "checked" : "") +
+               ' onclick="clickBox(' + h + ',' + i + ')"> ' + clean(steps[i]) + '</label>';
+    }
+    total += steps.length;
+    done += count;
+
+    var cls = "habit";
+    var title = clean(habits[h].name) + " (" + count + "/" + steps.length + ")";
+    if (count == steps.length) {
+      cls = "habit finished";
+      title += " DONE!";
+    }
+    html += '<div class="' + cls + '"><button class="del" onclick="deleteHabit(' + h + ')">delete</button><h3>' + title + '</h3>' + inner + '</div>';
+  }
+
+  document.getElementById("habits").innerHTML = html;
+
+  if (total > 0) {
+    document.getElementById("progress").innerHTML = "You did " + done + " out of " + total + " checkpoints (" + Math.round(done / total * 100) + "%)";
+  } else {
+    document.getElementById("progress").innerHTML = "";
+  }
+}
+
+show();
+</script>
+
+</body>
+</html>
